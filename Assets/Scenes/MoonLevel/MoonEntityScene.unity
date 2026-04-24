@@ -782,8 +782,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   EnemyPrefab: {fileID: 1911756286418508510, guid: 4094aafa746ad9642bc6b4dc6495e0bd, type: 3}
-  SpawnInterval: 0.5
-  SpawnDistance: 25
+  BossPrefab: {fileID: 2583405427132458676, guid: 40982592aa25cc647b310e14152b2d2d, type: 3}
+  SpawnInterval: 1
+  SpawnDistance: 25.1
   RandomSeed: 1257
 --- !u!4 &1886511564
 Transform:
@@ -1052,7 +1053,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 15bbd2d7871fe7840ad4431682dd9762, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MoveSpeed: 3.5
+  MoveSpeed: 5
   HitPoints: 100
 --- !u!114 &2014871090
 MonoBehaviour:
@@ -1067,9 +1068,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   AttackPrefab: {fileID: 8049534151928530165, guid: 102466d35fe8df04ebd3c6bfaf34a85a, type: 3}
-  CooldownTime: 0.00001
-  DetectionSize: 10
+  CooldownTime: 0.1
+  DetectionSize: 20
   WorldUIPrefab: {fileID: 6848332979229617546, guid: 1b8519ce5d7dc6e48bb4d207983180ca, type: 3}
+  MaxTargetCount: 24
+  PickupRange: 12
 --- !u!1 &2122906860
 GameObject:
   m_ObjectHideFlags: 0

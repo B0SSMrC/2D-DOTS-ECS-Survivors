@@ -12,6 +12,8 @@ namespace Survivors
 
     public struct EnemyTag : IComponentData {}
 
+    public struct BossTag : IComponentData {}
+
     public struct EnemyAttackData : IComponentData
     {
         public int HitPoints;
@@ -31,6 +33,7 @@ namespace Survivors
     [RequireComponent(typeof(CharacterAuthoring))]
     public class EnemyAuthoring : MonoBehaviour
     {
+        public bool IsBoss;
         public int AttackDamage;
         public float CooldownTime;
         public GameObject GemPrefab;
@@ -41,6 +44,10 @@ namespace Survivors
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
                 AddComponent<InitializeCharacterFlag>(entity);
                 AddComponent<EnemyTag>(entity);
+                if (authoring.IsBoss)
+                {
+                    AddComponent<BossTag>(entity);
+                }
                 AddComponent(entity, new EnemyAttackData
                 {
                     HitPoints = authoring.AttackDamage,

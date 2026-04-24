@@ -4,6 +4,7 @@ using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Burst;
 using Unity.Rendering;
+using Unity.Transforms;
 
 
 
@@ -95,12 +96,22 @@ namespace Survivors
         public void OnUpdate(ref SystemState state)
         {
             var deltaTime = SystemAPI.Time.DeltaTime;
-            foreach(var (velocity, facingDirection, direction, speed, entity) in SystemAPI.Query<RefRW<PhysicsVelocity>
-            ,RefRW<FacingDirectionOverride>, CharacterMoveDirection, CharacterMoveSpeed>().WithEntityAccess())
+            foreach(var (velocity, facingDirection, direction, speed, transform, entity) in SystemAPI.Query<
+                RefRW<PhysicsVelocity>, 
+                RefRW<FacingDirectionOverride>, 
+                CharacterMoveDirection, 
+                CharacterMoveSpeed, 
+                RefRW<LocalTransform>>().WithEntityAccess())
             {
                 var moveStep2d = direction.Value * speed.Value;
-                velocity.ValueRW.Linear = new float3(moveStep2d,0f);
+                
+                // 给物理引擎线速度赋值时，明确 Z 轴速度为 0
+                velocity.ValueRW.Linear = new float3(moveStep2d.x, moveStep2d.y, 0f);
+                
+                // 强行把所有角色的 Z 轴坐标归 0
+                transform.ValueRW.Position.z = 0f;
 
+                // 处理人物翻转
                 if(math.abs(moveStep2d.x) > 0.15f)
                 {
                     facingDirection.ValueRW.Value = math.sign(moveStep2d.x);

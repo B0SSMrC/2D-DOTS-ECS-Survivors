@@ -4,11 +4,11 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Rendering;
 using Unity.Physics;
-using Unity.Collections;
-using Unity.VisualScripting;
 using TMG.Survivors;
 using UnityEngine.UI;
-using System.Xml.Serialization;
+using Unity.Burst;
+using Unity.Collections;
+
 
 
 namespace Survivors
@@ -48,6 +48,7 @@ namespace Survivors
         public float CooldownTime;
         public float3 DetectionSize;
         public CollisionFilter collisionFilter;
+        public int MaxTargetCount;
     }
 
     public struct PlayerCooldownExpirationTimestamp : IComponentData
@@ -73,12 +74,21 @@ namespace Survivors
         public UnityObjectRef<GameObject> Value;
     }
 
+    public struct PlayerPickupRange : IComponentData
+    {
+        public float Value;
+    }
+
     public class PlayerAuthoring : MonoBehaviour
     {
         public GameObject AttackPrefab;
         public float CooldownTime;
         public float DetectionSize;
         public GameObject WorldUIPrefab;
+
+        public int MaxTargetCount = 3;
+
+        public float PickupRange;
         private class Baker : Baker<PlayerAuthoring>
         {
             public override void Bake(PlayerAuthoring authoring)
@@ -103,7 +113,8 @@ namespace Survivors
                     AttackPrefab = GetEntity(authoring.AttackPrefab, TransformUsageFlags.Dynamic),
                     CooldownTime = authoring.CooldownTime,
                     DetectionSize = new float3(authoring.DetectionSize),
-                    collisionFilter = attackCollisionFilter
+                    collisionFilter = attackCollisionFilter,
+                    MaxTargetCount = authoring.MaxTargetCount
                 });
                 AddComponent<PlayerCooldownExpirationTimestamp>(entity);
                 AddComponent<GemsCollectedCount>(entity);
@@ -112,6 +123,7 @@ namespace Survivors
                 {
                     Value = authoring.WorldUIPrefab
                 });
+                AddComponent(entity, new PlayerPickupRange { Value = authoring.PickupRange });
             }
         }
     }
@@ -175,12 +187,26 @@ namespace Survivors
 
     public partial struct PlayerAttackSystem : ISystem
     {
+        // 👇 定义一个内部结构体，用于记录敌人信息并支持基于距离的排序 (Burst 完全兼容)
+        private struct TargetInfo : System.IComparable<TargetInfo>
+        {
+            public float DistanceSq;
+            public float3 Position;
+
+            public int CompareTo(TargetInfo other)
+            {
+                return DistanceSq.CompareTo(other.DistanceSq);
+            }
+        }
+
         public void OnCreate(ref SystemState state)
         {
             state.RequireForUpdate<BeginInitializationEntityCommandBufferSystem.Singleton>();
             state.RequireForUpdate<PhysicsWorldSingleton>();
         }
 
+        // 建议加上 BurstCompile 提升性能
+        [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             var elapsedTime = SystemAPI.Time.ElapsedTime;
@@ -188,6 +214,7 @@ namespace Survivors
             var ecbSystem = SystemAPI.GetSingleton<BeginInitializationEntityCommandBufferSystem.Singleton>();
             var ecb = ecbSystem.CreateCommandBuffer(state.WorldUnmanaged);
             var physicsWorldSingleton = SystemAPI.GetSingleton<PhysicsWorldSingleton>();
+            
             foreach(var (expirationTimestamp, attackData, transform) in SystemAPI
             .Query<RefRW<PlayerCooldownExpirationTimestamp>, PlayerAttackData, LocalTransform>())
             {
@@ -199,39 +226,47 @@ namespace Survivors
 
                 var aabbInput = new OverlapAabbInput
                 {
-                    Aabb = new Aabb
-                    {
-                        Min = minDetectPosition,
-                        Max = maxDetectPosition
-                    },
+                    Aabb = new Aabb { Min = minDetectPosition, Max = maxDetectPosition },
                     Filter = attackData.collisionFilter
                 };
 
                 var overlapHits = new NativeList<int>(state.WorldUpdateAllocator);
                 if(!physicsWorldSingleton.OverlapAabb(aabbInput, ref overlapHits))
                 {
-                    continue;
+                    continue; // 没扫描到任何敌人，跳过
                 }
 
-                var maxDistanceSq = float.MaxValue;
-                var closestEnemyPosition = float3.zero;
+                // 👇 核心重构：记录所有扫描到的敌人距离并排序
+                // 使用 WorldUpdateAllocator 申请临时内存，Unity 会在这一帧结束时自动帮我们回收，绝不会内存泄漏
+                var targets = new NativeList<TargetInfo>(overlapHits.Length, state.WorldUpdateAllocator);
+                
                 foreach(var overlapHit in overlapHits)
                 {
                     var curEnemyPosition = physicsWorldSingleton.Bodies[overlapHit].WorldFromBody.pos;
-                    var distanceToPlayerSq = math.distancesq(spawnPosition.xy, curEnemyPosition.xy);
-                    if(distanceToPlayerSq < maxDistanceSq)
-                    {
-                        maxDistanceSq = distanceToPlayerSq;
-                        closestEnemyPosition = curEnemyPosition;
-                    }
+                    targets.Add(new TargetInfo 
+                    { 
+                        DistanceSq = math.distancesq(spawnPosition.xy, curEnemyPosition.xy), 
+                        Position = curEnemyPosition 
+                    });
                 }
 
-                var vectorToClosestEnemy = closestEnemyPosition - spawnPosition;
-                var angleToClosestEnemy = math.atan2(vectorToClosestEnemy.y, vectorToClosestEnemy.x);
-                var spawnOrientation = quaternion.Euler(0f, 0f, angleToClosestEnemy);
+                // 按距离从小到大排序 (DOTS 原生高性能排序)
+                targets.Sort();
 
-                var newAttack = ecb.Instantiate(attackData.AttackPrefab);
-                ecb.SetComponent(newAttack, LocalTransform.FromPositionRotation(spawnPosition, spawnOrientation));
+                // 确定最终要发射的子弹数量（不能超过设定上限，也不能超过实际找到的敌人总数）
+                int fireCount = math.min(attackData.MaxTargetCount, targets.Length);
+
+                // 循环向最近的 N 个敌人发射子弹
+                for(int i = 0; i < fireCount; i++)
+                {
+                    var targetPos = targets[i].Position;
+                    var vectorToEnemy = targetPos - spawnPosition;
+                    var angleToClosestEnemy = math.atan2(vectorToEnemy.y, vectorToEnemy.x);
+                    var spawnOrientation = quaternion.Euler(0f, 0f, angleToClosestEnemy);
+
+                    var newAttack = ecb.Instantiate(attackData.AttackPrefab);
+                    ecb.SetComponent(newAttack, LocalTransform.FromPositionRotation(spawnPosition, spawnOrientation));
+                }
 
                 expirationTimestamp.ValueRW.Value = elapsedTime + attackData.CooldownTime;
             }
