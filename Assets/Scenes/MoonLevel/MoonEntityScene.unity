@@ -1054,7 +1054,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   MoveSpeed: 5
-  HitPoints: 100
+  HitPoints: 1000000
 --- !u!114 &2014871090
 MonoBehaviour:
   m_ObjectHideFlags: 0
