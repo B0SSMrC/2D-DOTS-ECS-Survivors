@@ -85,26 +85,41 @@ namespace Survivors
             }
             foreach(var (spawnState, spawnData, entity) in SystemAPI.Query<RefRW<EnemySpawnState>, EnemySpawnData>().WithEntityAccess())
             {
-
+                float safeInterval = math.max(0.00001f, spawnData.SpawnInterval);
                 // --- 普通敌人生成逻辑 ---
                 spawnState.ValueRW.SpawnTimer -= SystemAPI.Time.DeltaTime;
-                while(spawnState.ValueRO.SpawnTimer <= 0f) 
+                if (spawnState.ValueRO.SpawnTimer <= 0f)
                 {
-                    spawnState.ValueRW.SpawnTimer = spawnData.SpawnInterval;
+                    // 2. 用除法直接算出这段“透支”的时间里，应该生成多少个敌人
+                    // excessTime 是累积溢出的时间（绝对值）
+                    float excessTime = math.abs(spawnState.ValueRO.SpawnTimer);
+                    
+                    // 生成数量 = 1（触发当前这次的） + 透支时间里能塞下的额外数量
+                    int spawnCount = 1 + (int)(excessTime / safeInterval);
+
+                    // 3. 将消耗掉的时间补回，保留多余的小数
+                    spawnState.ValueRW.SpawnTimer += spawnCount * safeInterval;
+
                     var playerEntity = SystemAPI.GetSingletonEntity<PlayerTag>();
                     var playerPosition = SystemAPI.GetComponent<LocalTransform>(playerEntity).Position;
-                    var newEnemy = ecb.Instantiate(spawnData.EnemyPrefab);
-                    var spawnAngle = spawnState.ValueRW.Random.NextFloat(0f, math.TAU);
-                    var spawnPoint = new float3
-                    {
-                        x = math.sin(spawnAngle),
-                        y = math.cos(spawnAngle),
-                        z = 0f
-                    };
-                    spawnPoint *= spawnData.SpawnDistance;
-                    spawnPoint += playerPosition;
 
-                    ecb.SetComponent(newEnemy, LocalTransform.FromPosition(spawnPoint));
+                    for (int i = 0; i < spawnCount; i++)
+                    {
+                        var newEnemy = ecb.Instantiate(spawnData.EnemyPrefab);
+                        
+                        // 每个敌人的生成角度依然需要重新随机
+                        var spawnAngle = spawnState.ValueRW.Random.NextFloat(0f, math.TAU);
+                        var spawnPoint = new float3
+                        {
+                            x = math.sin(spawnAngle),
+                            y = math.cos(spawnAngle),
+                            z = 0f
+                        };
+                        spawnPoint *= spawnData.SpawnDistance;
+                        spawnPoint += playerPosition;
+
+                        ecb.SetComponent(newEnemy, LocalTransform.FromPosition(spawnPoint));
+                    }
                 }
             }
         }
