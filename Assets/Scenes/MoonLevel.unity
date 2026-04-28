@@ -904,7 +904,7 @@ Camera:
   far clip plane: 5000
   field of view: 40
   orthographic: 1
-  orthographic size: 10
+  orthographic size: 15
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -1384,8 +1384,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 106, y: 425}
-  m_SizeDelta: {x: -451.16, y: -980}
+  m_AnchoredPosition: {x: 106, y: 527.9}
+  m_SizeDelta: {x: -451.16, y: -1185.8}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &690277592
 MonoBehaviour:
@@ -4580,7 +4580,7 @@ MonoBehaviour:
     CustomLookAtTarget: 0
   Lens:
     FieldOfView: 40
-    OrthographicSize: 10
+    OrthographicSize: 15
     NearClipPlane: 0.1
     FarClipPlane: 5000
     Dutch: 0

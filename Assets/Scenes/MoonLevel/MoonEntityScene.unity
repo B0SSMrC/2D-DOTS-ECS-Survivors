@@ -784,7 +784,7 @@ MonoBehaviour:
   EnemyPrefab: {fileID: 1911756286418508510, guid: 4094aafa746ad9642bc6b4dc6495e0bd, type: 3}
   BossPrefab: {fileID: 2583405427132458676, guid: 40982592aa25cc647b310e14152b2d2d, type: 3}
   SpawnInterval: 1
-  SpawnDistance: 25.1
+  SpawnDistance: 10
   RandomSeed: 1257
 --- !u!4 &1886511564
 Transform:
@@ -1001,7 +1001,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2014871083}
   serializedVersion: 4
-  m_Mass: 100
+  m_Mass: 10000
   m_Drag: Infinity
   m_AngularDrag: Infinity
   m_CenterOfMass: {x: 0, y: 0, z: 0}
