@@ -50,6 +50,8 @@ namespace TMG.Survivors
 
         private void Start()
         {
+            QualitySettings.vSyncCount = 0;          // 关垂直同步
+            Application.targetFrameRate = 0;         // 解除帧率上限
             _gameOverPanel.SetActive(false);
             _pausePanel.SetActive(false);
         }
